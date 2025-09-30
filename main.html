@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>💰 6-Pot Saver Digital Budgeting</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h2 { margin-top: 20px; }
+    .container {
+      display: flex;
+      justify-content: center;
+      gap: 50px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+    .input-container, .remove-container {
+      background: #fff;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 2px 6px rgba(0,0,0,0.2);
+    }
+    input { margin: 5px; padding: 8px; width: 120px; text-align: center; }
+    button { padding: 10px 20px; margin: 10px; cursor: pointer; }
+    .jars {
+      display: flex;
+      justify-content: center;
+      margin-top: 20px;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    .jar-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .jar {
+      width: 80px;
+      height: 200px;
+      border: 2px solid #333;
+      border-radius: 10px;
+      position: relative;
+      background: white;
+      overflow: hidden;
+    }
+    .jar-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0;
+      background: linear-gradient(to top, #28a745, #7bdc8f);
+      transition: height 0.4s ease-in-out;
+    }
+    .jar-label { margin-top: 5px; font-size: 14px; }
+    .remaining, #totalDisplay { margin-top: 10px; font-weight: bold; color: #333; }
+    canvas { max-width: 700px; margin: 30px auto; display: block; }
+  </style>
+</head>
+<body>
+  <h2>💰 6-Pot Saver Digital Budgeting</h2>
+  <div class="remaining" id="totalDisplay">Total Coins: 0</div>
+
+  <div class="container">
+    <div class="input-container">
+      <h3>Allocate Coins</h3>
+      <div id="allocationInputs">
+        <div>
+          <label>Jar 1 Name:</label><input type="text" id="jarName1" placeholder="Saving"><input type="number" id="pot1" value="0"><br>
+          <label>Jar 2 Name:</label><input type="text" id="jarName2" placeholder="Necessities"><input type="number" id="pot2" value="0"><br>
+          <label>Jar 3 Name:</label><input type="text" id="jarName3" placeholder="Education"><input type="number" id="pot3" value="0"><br>
+          <label>Jar 4 Name:</label><input type="text" id="jarName4" placeholder="Entertainment"><input type="number" id="pot4" value="0"><br>
+          <label>Jar 5 Name:</label><input type="text" id="jarName5" placeholder="Give"><input type="number" id="pot5" value="0"><br>
+          <label>Jar 6 Name:</label><input type="text" id="jarName6" placeholder="Financial Freedom"><input type="number" id="pot6" value="0"><br>
+        </div>
+        <button onclick="allocateCoins()">Allocate Coins</button>
+      </div>
+    </div>
+
+    <div class="remove-container">
+      <h3>Take Coins Out</h3>
+      <label>Jar Name:</label>
+      <select id="jarSelect"></select><br>
+      <label>Coins to Remove:</label>
+      <input type="number" id="removeCoins" placeholder="0"><br>
+      <button onclick="removeCoins()">Take Out</button>
+      <div class="remaining" id="remainingDisplay">Remaining: 0</div>
+    </div>
+  </div>
+
+  <div class="jars" id="jarWrapper"></div>
+  <canvas id="potChart"></canvas>
+
+  <script>
+    let pots = [0,0,0,0,0,0];
+    let jarNames = ["Saving","Necessities","Education","Entertainment","Give","Financial Freedom"];
+    let previousHeights = [0,0,0,0,0,0];
+    let chart;
+
+    const jarWrapper = document.getElementById('jarWrapper');
+    const remainingDisplay = document.getElementById('remainingDisplay');
+    const totalDisplay = document.getElementById('totalDisplay');
+
+    function createJarElements(){
+      jarWrapper.innerHTML = '';
+      for(let i=0;i<6;i++){
+        const container = document.createElement('div');
+        container.className = 'jar-container';
+        container.innerHTML = `
+          <div class="jar"><div class="jar-fill" id="fill${i}"></div></div>
+          <div class="jar-label" id="label${i}">${jarNames[i]} (0)</div>
+        `;
+        jarWrapper.appendChild(container);
+      }
+    }
+
+    function updateTotal(){
+      const total = pots.reduce((sum,val)=>sum+val,0);
+      totalDisplay.innerText = "Total Coins: " + total;
+    }
+
+    function allocateCoins() {
+      for(let i=0;i<6;i++){
+        pots[i] = parseInt(document.getElementById("pot"+(i+1)).value) || 0;
+        jarNames[i] = document.getElementById("jarName"+(i+1)).value || jarNames[i];
+      }
+      updateJars();
+      updateChart();
+      updateDropdown();
+      remainingDisplay.innerText = "Remaining: 0";
+      updateTotal();
+    }
+
+    function updateDropdown(){
+      const select = document.getElementById("jarSelect");
+      select.innerHTML = "";
+      for(let i=0;i<6;i++){
+        const opt = document.createElement("option");
+        opt.value = i;
+        opt.text = jarNames[i];
+        select.add(opt);
+      }
+    }
+
+    function removeCoins(){
+      const jarIndex = parseInt(document.getElementById("jarSelect").value);
+      const coinsToRemove = parseInt(document.getElementById("removeCoins").value) || 0;
+
+      if(coinsToRemove<=0 || coinsToRemove > pots[jarIndex]){
+        alert("Enter a valid coin value to remove!");
+        return;
+      }
+
+      pots[jarIndex] -= coinsToRemove;
+      updateJars();
+      updateChart();
+      remainingDisplay.innerText = `${jarNames[jarIndex]} Remaining: ${pots[jarIndex]}`;
+      updateTotal();
+    }
+
+    function updateJars(){
+      const maxCoins = Math.max(...pots, 1);
+      for(let i=0;i<6;i++){
+        const fill = document.getElementById("fill"+i);
+        const newHeight = (pots[i] / maxCoins) * 200;
+        const pixelDrop = previousHeights[i] - newHeight;
+        // Pixel drop logic preserved, but not displayed
+        previousHeights[i] = newHeight;
+        fill.style.height = newHeight + 'px';
+        document.getElementById("label"+i).innerText = jarNames[i] + " ("+pots[i]+")";
+      }
+    }
+
+    function updateChart(){
+      const ctx = document.getElementById("potChart").getContext("2d");
+      if(chart) chart.destroy();
+      chart = new Chart(ctx,{
+        type:"bar",
+        data:{
+          labels: jarNames,
+          datasets:[{
+            label:"Coins Allocated",
+            data: pots,
+            backgroundColor:[
+              "rgba(40, 167, 69, 0.8)",
+              "rgba(255, 99, 132, 0.8)",
+              "rgba(54, 162, 235, 0.8)",
+              "rgba(255, 206, 86, 0.8)",
+              "rgba(153, 102, 255, 0.8)",
+              "rgba(255, 159, 64, 0.8)"
+            ]
+          }]
+        },
+        options:{
+          responsive:true,
+          plugins: { legend: { display: true } },
+          scales:{ y:{ beginAtZero:true, title:{ display:true, text:'Coins' } } }
+        }
+      });
+    }
+
+    // initial setup
+    createJarElements();
+    updateDropdown();
+    updateTotal();
+    updateChart();
+  </script>
